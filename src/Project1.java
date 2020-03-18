@@ -1,101 +1,189 @@
+//Name: Stanley Lin
 import java.util.*;
 
+class Event {
+	private double time;
+	public int type;
+	
+	public Event(int t1, double t2) {
+		this.type = t1;
+		this.time = t2;
+	}
+	
+	public int getType() {
+		return this.type;
+	}
+	
+	public double getTime() {
+		return this.time;
+	}
+}
+
+class EventList extends LinkedList{
+	public EventList() {
+		super();
+	}
+	
+	public Object getMin() {
+		return getFirst();
+	}
+	
+	public void enqueue(Object obj) {
+		add(obj);
+	}
+	
+	public void dequeue() {
+		removeFirst();
+	}
+}
+
+class Queue extends LinkedList{
+	public void enqueue(Object o) {
+		add(o);
+	}
+	
+	public Object dequeue() {
+		return removeFirst();
+	}
+}
 public class Project1 {
-	double arrival;
-	double delays;
-	double waits;
-	double service;
-	int numOfJobs;
+	public static double clock;
+	public static double meanInterArrivalTime;
+	public static double meanServiceTime;
+	public static double sigma;
+	public static double lastEventTime;
+	public static double totalBusy;
+	public static double maxQueueLength;
+	public static double sumResponseTime;
+	public static long num_Customers;
+	public static long queueLength;
+	public static long numberInService;
+	public static long totalCustomers;
+	public static long num_Departures;
+	public static long longService;
+	public static int busyPeriods;
+	public final static int arrival = 1;
+	public final static int departure = 2;
 	
-	void initializeParameters() {
-		arrival = 0.0;
-		delays = 0.0;
-		waits = 0.0;
-		service = 0.0;
-		numOfJobs = 0;
+	public static EventList futureEventList;
+	public static Queue customers;
+	public static Random rand;
+	
+	public static void initialize() {
+		clock = 0.0;
+		queueLength = 0;
+		numberInService = 0;
+		lastEventTime = 0.0;
+		maxQueueLength = 0;
+		num_Departures = 0;
+		busyPeriods = 0;
+		Event e = new Event(arrival, getInterArrival());
+		futureEventList.enqueue(e);
 	}
 	
-	double getAvg_InterArrival() {
-		return arrival / numOfJobs;
+	public static void processArrival(Event e) {
+		customers.enqueue(e);
+		queueLength++;
+		
+		if(numberInService == 0) {
+			scheduleDeparture();
+		}
+		else {
+			totalBusy += (clock - lastEventTime);
+			busyPeriods++;
+		}
+		
+		if(maxQueueLength < queueLength) {
+			maxQueueLength = queueLength;
+		}
+		
+		Event nextArrival = new Event(arrival, clock + expon(rand, meanInterArrivalTime));
+		futureEventList.enqueue(nextArrival);
+		lastEventTime = clock;
 	}
 	
-	double getAvg_ServiceTime() {
-		return service / numOfJobs;
+	public static void scheduleDeparture() {
+		double servTime;
+		servTime = expon(rand, meanServiceTime);
+		Event depart = new Event(departure, clock + servTime);
+		futureEventList.enqueue(depart);
+		numberInService = 1;
+		queueLength--;
 	}
 	
-	double getAvg_Delay() {
-		return delays / numOfJobs;
+	public static void processDeparture(Event e) {
+		Event fin = (Event) customers.dequeue();
+		
+		double response = (clock - fin.getTime());
+		
+		sumResponseTime += response;
+		
+		if(response > 4.0) {
+			longService++;
+		}
+		totalBusy += (clock - lastEventTime);
+		num_Departures++;
+		lastEventTime = clock;
+		
+		if(queueLength > 0) {
+			scheduleDeparture();
+		}
+		else {
+			numberInService = 0;
+		}
 	}
 	
-	double getAvg_Wait() {
-		return waits / numOfJobs;
+	public static double expon(Random r, double mean) {
+		return -mean * Math.log(r.nextDouble());
 	}
 	
 	public static double getInterArrival() {
-		Random rand = new Random();
-		double r = rand.nextInt(10);
-		if(r < 1) {
-			return 30.0;
+		double x = Math.random();
+		if(x == 0.0) {
+			x = 0.1;
 		}
+		double perArrival = -6 * Math.log(x);
 		
-		else if(r < 4) {
-			return 10.0;
-		}
-		else {
-			return 20.0;
-		}
+		return perArrival;
 	}
 	
 	public static double getService() {
-		Random rand = new Random();
-		double r = rand.nextInt(10);
-		if(r < 1) {
-			return 20.0;
+		double x = Math.random();
+		if(x == 0.0) {
+			x = 0.1;
 		}
-		else if(r < 4) {
-			return 8.0;
-		}
-		else {
-			return 15.0;
-		}
+		double perService = -5 * Math.log(x);
+		return perService;
 	}
 	
-	public void simulate() {
-		double serviceTime, interarrivalTime, departureTime = 0, delay, wait;
-		initializeParameters();
-		service += getService();
-		departureTime += service;
-		for(int i = 0; i < 1000; i++) {
-			numOfJobs++;
-			interarrivalTime = getInterArrival();
-			arrival += interarrivalTime;
-			if(arrival < departureTime) {
-				delay = departureTime - arrival;
-			}
-			else {
-				delay = 0.0;
-			}
-			serviceTime = getService();
-			wait = delay + serviceTime;
-			departureTime = arrival + wait;
-			delays += delay;
-			waits += wait;
-			service += serviceTime;
-			if(numOfJobs <= 20) {
-				System.out.println("Job: " + numOfJobs + ", Arrival Time: " + interarrivalTime + ", Service Time: " + serviceTime + ", Current Time: " + arrival);
-			}
-		}
-		System.out.println("Results for 1000 service completions");
-		System.out.println("Total time elapsed: " + arrival + " secs.");
-		System.out.println("Average Interarrival Time: " + getAvg_InterArrival() + " secs.");
-		System.out.println("Average Service: " + getAvg_ServiceTime() + " secs.");
-		System.out.println("Average Delay: " + getAvg_Delay() + " secs.");
-		System.out.println("Average Wait Time: " + getAvg_Wait() + " secs.");
+	public static void generateReport() {
+		System.out.println("Number of Customers: " + totalCustomers);
+		System.out.println("Avg. Interarrival Time: " + meanInterArrivalTime);
+		System.out.println("Avg. Service Time: " + meanServiceTime);
+		System.out.println();
 	}
 	
 	public static void main(String[] args) {
 		System.out.println("Name: Stanley Lin");
-		Project1 ssq = new Project1();
-		ssq.simulate();
+		meanInterArrivalTime = getInterArrival();
+		meanServiceTime = 5;
+		totalCustomers = 1000;
+		rand = new Random();
+		
+		futureEventList = new EventList();
+		customers = new Queue();
+		initialize();
+		
+		while(num_Departures < totalCustomers) {
+			Event e = (Event) futureEventList.getMin();
+			futureEventList.dequeue();
+			clock = e.getTime();
+			if(e.getType() == arrival) {
+				processArrival(e);
+			}
+			else {
+				processDeparture(e);
+			}
+		}
 	}
 }
